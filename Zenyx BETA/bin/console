@@ -1,0 +1,79 @@
+#!/usr/bin/env php
+<?php
+declare(strict_types=1);
+
+require __DIR__ . '/../vendor/autoload.php';
+
+use App\Core\Application;
+use App\Core\MigrationManager;
+use App\Services\TelegramService;
+
+// Inicializa aplicação
+$app = Application::getInstance(__DIR__ . '/..');
+
+// Obtém comando e argumentos
+$command = $argv[1] ?? 'help';
+$args = array_slice($argv, 2);
+
+try {
+    switch ($command) {
+        case 'migrate':
+            $migrationManager = $app->getContainer()->get(MigrationManager::class);
+            $result = $migrationManager->migrate();
+            echo $result['message'] . PHP_EOL;
+            break;
+            
+        case 'migrate:rollback':
+            $migrationManager = $app->getContainer()->get(MigrationManager::class);
+            $result = $migrationManager->rollback();
+            echo $result['message'] . PHP_EOL;
+            break;
+            
+        case 'migrate:refresh':
+            $migrationManager = $app->getContainer()->get(MigrationManager::class);
+            $result = $migrationManager->refresh();
+            echo $result['message'] . PHP_EOL;
+            break;
+            
+        case 'db:seed':
+            require_once __DIR__ . '/../database/seeds/DatabaseSeeder.php';
+            $seeder = new \Database\Seeds\DatabaseSeeder($app->getContainer()->get(\App\Core\Database::class));
+            $seeder->run();
+            echo "Database seeded successfully!" . PHP_EOL;
+            break;
+            
+        case 'telegram:webhook':
+            $telegram = $app->getContainer()->get(TelegramService::class);
+            $url = $_ENV['APP_URL'] . '/webhook/telegram';
+            $result = $telegram->setWebhook($url);
+            echo ($result ? "Webhook set successfully!" : "Failed to set webhook") . PHP_EOL;
+            break;
+            
+        case 'cache:clear':
+            $redis = $app->getContainer()->get(\App\Services\RedisService::class);
+            $redis->flushAll();
+            echo "Cache cleared successfully!" . PHP_EOL;
+            break;
+            
+        case 'help':
+        default:
+            echo <<<HELP
+Bot Zenyx Console Tool v1.0.0
+
+Usage: php console <command> [options]
+
+Available commands:
+  migrate              Run database migrations
+  migrate:rollback     Rollback last migration batch
+  migrate:refresh      Rollback all migrations and re-run them
+  db:seed             Seed the database with test data
+  telegram:webhook    Set Telegram webhook URL
+  cache:clear         Clear all cache data
+  help               Display this help message
+
+HELP;
+    }
+} catch (\Throwable $e) {
+    echo "Error: " . $e->getMessage() . PHP_EOL;
+    exit(1);
+}
