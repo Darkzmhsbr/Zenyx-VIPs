@@ -1,0 +1,70 @@
+version: '3.8'
+
+services:
+  # Serviço principal do Bot Zenyx
+  zenyx-bot:
+    image: python:3.9-slim
+    container_name: zenyx-bot
+    working_dir: /app
+    volumes:
+      - ./:/app
+    command: >
+      bash -c "pip install -r requirements.txt &&
+               python main.py"
+    environment:
+      - BOT_TOKEN=${BOT_TOKEN}
+      - ADMIN_USER_ID=${ADMIN_USER_ID}
+      - CHANNEL_ID=${CHANNEL_ID}
+      - CHANNEL_LINK=${CHANNEL_LINK}
+      - PUSHIN_PAY_TOKEN=${PUSHIN_PAY_TOKEN}
+      - MYSQL_HOST=${MYSQL_HOST}
+      - MYSQL_USER=${MYSQL_USER}
+      - MYSQL_PASSWORD=${MYSQL_PASSWORD}
+      - MYSQL_DATABASE=${MYSQL_DATABASE}
+      - REDIS_HOST=${REDIS_HOST}
+      - REDIS_PORT=${REDIS_PORT}
+    depends_on:
+      - mysql
+      - redis
+    restart: unless-stopped
+    networks:
+      - zenyx-network
+
+  # Banco de dados MySQL para o Bot
+  mysql:
+    image: mariadb:10.6
+    container_name: zenyx-mysql
+    environment:
+      - MARIADB_ROOT_PASSWORD=root_password
+      - MARIADB_DATABASE=${MYSQL_DATABASE}
+      - MARIADB_USER=${MYSQL_USER}
+      - MARIADB_PASSWORD=${MYSQL_PASSWORD}
+    volumes:
+      - zenyx-mysql-data:/var/lib/mysql
+      - ./scripts/init-db.sql:/docker-entrypoint-initdb.d/init-db.sql
+    ports:
+      - "3306:3306"
+    command: --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
+    restart: unless-stopped
+    networks:
+      - zenyx-network
+
+  # Servidor Redis para cache e gerenciamento de estado
+  redis:
+    image: redis:6-alpine
+    container_name: zenyx-redis
+    volumes:
+      - zenyx-redis-data:/data
+    ports:
+      - "6379:6379"
+    restart: unless-stopped
+    networks:
+      - zenyx-network
+
+volumes:
+  zenyx-mysql-data:
+  zenyx-redis-data:
+
+networks:
+  zenyx-network:
+    driver: bridge
